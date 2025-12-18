@@ -1,0 +1,40 @@
+name: Deploy Power BI PBIX
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Power BI PowerShell Module
+        shell: pwsh
+        run: |
+          Install-Module -Name MicrosoftPowerBIMgmt -Scope CurrentUser -Force -AllowClobber
+
+      - name: Login and Publish PBIX
+        shell: pwsh
+        run: |
+          Import-Module MicrosoftPowerBIMgmt
+
+          $securePassword = ConvertTo-SecureString "${{ secrets.PBI_CLIENT_SECRET }}" -AsPlainText -Force
+          $credential = New-Object System.Management.Automation.PSCredential(
+            "${{ secrets.PBI_CLIENT_ID }}",
+            $securePassword
+          )
+
+          Connect-PowerBIServiceAccount `
+            -ServicePrincipal `
+            -Tenant "${{ secrets.PBI_TENANT_ID }}" `
+            -Credential $credential
+
+          New-PowerBIReport `
+            -Path "SalesReport2.pbix" `
+            -WorkspaceId "${{ secrets.PBI_WORKSPACE_ID }}" `
+            -ConflictAction CreateOrOverwrite
